@@ -3,78 +3,61 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const BASE_URL = process.env.HF_BASE_URL; // e.g. https://lms-uat.highfieldelearning.com/lms/api
-const USERNAME = process.env.HF_USERNAME; // e.g. annechoran@yahoo.co.uk
-const PASSWORD = process.env.HF_PASSWORD; // e.g. Test2025
+const BASE_URL = process.env.HF_BASE_URL;
+const USERNAME = process.env.HF_USERNAME;
+const PASSWORD = process.env.HF_PASSWORD;
 
 let cachedToken = null;
 let tokenExpiry = 0;
 
-// ✅ Get token (Highfield expects form-urlencoded body)
+// ✅ STEP 1: Get Token (cached)
 export async function getToken() {
   const now = Date.now();
+  if (cachedToken && tokenExpiry > now) return cachedToken;
 
-  // Use cached token if still valid
-  if (cachedToken && tokenExpiry > now) {
-    return cachedToken;
-  }
+  const { data } = await axios.post(
+    `${BASE_URL}/login`,
+    new URLSearchParams({
+      username: USERNAME,
+      password: PASSWORD
+    }),
+    { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+  );
 
-  try {
-    const { data } = await axios.post(
-      `${BASE_URL}/login`,
-      new URLSearchParams({
-        username: USERNAME,
-        password: PASSWORD
-      }),
-      {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" }
-      }
-    );
-
-    if (!data.success) {
-      throw new Error("Login failed: " + data.message);
-    }
-
-    const token = data.data.token;
-    cachedToken = token;
-    tokenExpiry = now + 19 * 60 * 1000; // cache token for ~19 mins
-
-    console.log("🔑 LMS token retrieved successfully");
-    return token;
-  } catch (err) {
-    console.error("❌ LMS login error:", err.response?.data || err.message);
-    throw new Error("Login failed: " + (err.response?.data?.message || err.message));
-  }
+  if (!data.success) throw new Error("Login failed: " + data.message);
+  cachedToken = data.data.token;
+  tokenExpiry = now + 19 * 60 * 1000;
+  console.log("🔑 LMS token retrieved successfully");
+  return cachedToken;
 }
 
-// ✅ Enrol learner
+// ✅ STEP 2: Enrol Learner
 export async function enrolLearner({ firstname, lastname, email, course_id, tier_id }) {
-  try {
-    const token = await getToken();
+  const token = await getToken();
 
-    // ✅ Highfield expects form-urlencoded body, not JSON
-    const payload = new URLSearchParams({
-      token,
-      firstname,
-      lastname,
-      username: email,
-      email,
-      password: "Temp@123",
-      course_id: String(course_id),
-      tier_id: String(tier_id)
+  const payload = new URLSearchParams({
+    token,
+    firstname,
+    lastname,
+    username: email,
+    email,
+    password: "Temp@123",
+    course_id: String(course_id),
+    tier_id: String(tier_id),
+    test: "0" // Add explicitly — even if not required
+  });
+
+  console.log("📤 Sending enrol payload:", Object.fromEntries(payload.entries()));
+
+  try {
+    const { data } = await axios.post(`${BASE_URL}/autoEnrol`, payload, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
 
-    const { data } = await axios.post(
-      `${BASE_URL}/autoEnrol`,
-      payload,
-      {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" }
-      }
-    );
+    console.log("📨 LMS Response:", data);
 
     if (!data.success) {
-      console.error("❌ LMS enrolment failed:", data.message);
-      throw new Error(data.message);
+      throw new Error(data.message || "LMS enrolment failed");
     }
 
     console.log(`🎉 Learner enrolled successfully: ${email}`);
