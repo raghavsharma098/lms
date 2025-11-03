@@ -57,7 +57,7 @@ router.post("/", express.raw({ type: "application/json" }), async (req, res) => 
         lastname: meta.lastName || session.customer_details?.name?.split(" ")[1] || "User",
         email: meta.email || session.customer_email,
         course_id: meta.courseId || 276, // Default: API Test Course
-        tier_id: meta.tierId || 12318     // Default: Community Steps Division
+        enrol_to_id: meta.enrolToId || 12317     // Default: Community Steps Division
       });
 
       if (order) {
@@ -76,4 +76,5 @@ router.post("/", express.raw({ type: "application/json" }), async (req, res) => 
 });
 
 export default router;
+
 
