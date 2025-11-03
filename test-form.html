@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Highfield LMS - Course Enrollment</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      width: 100%;
+      padding: 40px;
+    }
+    
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #333;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    
+    input, select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: border-color 0.3s;
+    }
+    
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .course-info {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .course-name {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    
+    .course-price {
+      font-size: 24px;
+      color: #667eea;
+      font-weight: 700;
+    }
+    
+    button {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .error {
+      background: #fee;
+      color: #c33;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    
+    .loading {
+      text-align: center;
+      color: #667eea;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Course Enrollment</h1>
+    <p class="subtitle">Complete your details to enroll in the course</p>
+    
+    <div id="error-message" class="error" style="display: none;"></div>
+    
+    <form id="enrollment-form">
+      <div class="course-info">
+        <div class="course-name">Food Safety Level 2</div>
+        <div class="course-price">£49.99</div>
+      </div>
+      
+      <div class="form-group">
+        <label for="firstName">First Name *</label>
+        <input type="text" id="firstName" name="firstName" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="lastName">Last Name *</label>
+        <input type="text" id="lastName" name="lastName" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="email">Email Address *</label>
+        <input type="email" id="email" name="email" required>
+      </div>
+      
+      <input type="hidden" id="courseId" name="courseId" value="12345">
+      <input type="hidden" id="courseName" name="courseName" value="Food Safety Level 2">
+      <input type="hidden" id="price" name="price" value="4999">
+      <input type="hidden" id="enrolToId" name="enrolToId" value="67890">
+      
+      <button type="submit" id="submit-btn">
+        Proceed to Payment
+      </button>
+      
+      <div id="loading" class="loading" style="display: none;">
+        Processing...
+      </div>
+    </form>
+  </div>
+
+  <script>
+    // ⚠️ IMPORTANT: Update this to your actual backend URL
+    const BACKEND_URL = 'http://localhost:4000';
+    
+    const form = document.getElementById('enrollment-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const loading = document.getElementById('loading');
+    const errorMsg = document.getElementById('error-message');
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      // Hide error message
+      errorMsg.style.display = 'none';
+      
+      // Disable button and show loading
+      submitBtn.disabled = true;
+      loading.style.display = 'block';
+      
+      // Collect form data
+      const formData = {
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        email: document.getElementById('email').value,
+        courseId: document.getElementById('courseId').value,
+        courseName: document.getElementById('courseName').value,
+        price: parseInt(document.getElementById('price').value),
+        enrolToId: document.getElementById('enrolToId').value
+      };
+      
+      try {
+        const response = await fetch(`${BACKEND_URL}/checkout/create-session`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(formData)
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to create checkout session');
+        }
+        
+        const data = await response.json();
+        
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+        
+      } catch (error) {
+        console.error('Error:', error);
+        errorMsg.textContent = 'Payment initialization failed. Please try again.';
+        errorMsg.style.display = 'block';
+        submitBtn.disabled = false;
+        loading.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
