@@ -8,12 +8,12 @@ import stripeWebhook from "./routes/stripeWebhook.js";
 dotenv.config();
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
 // ⚠️ Important: Stripe webhook must use raw body
 app.use('/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhook);
 
+app.use(cors());
+app.use(express.json());
 // Normal JSON middleware for other routes
 app.use('/checkout', checkoutRoutes);
 
@@ -25,3 +25,4 @@ app.get("/", (req, res) => res.send("Server running..."));
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
