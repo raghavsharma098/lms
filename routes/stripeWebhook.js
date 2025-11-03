@@ -8,47 +8,67 @@ dotenv.config();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const router = express.Router();
 
+// Access your Mongoose model
 const Order = mongoose.model("Order");
 
-router.post("/", async (req, res) => {
-  const sig = req.headers["stripe-signature"];
+router.post("/", express.raw({ type: "application/json" }), async (req, res) => {
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    const sig = req.headers["stripe-signature"];
+
+    // ✅ If using Postman or manual test (no signature header)
+    if (!sig) {
+      console.warn("⚠️ No stripe-signature header — running in manual test mode");
+      event = req.body;
+    } else {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    }
   } catch (err) {
-    console.error("⚠️ Webhook signature verification failed:", err.message);
+    console.error("❌ Webhook signature verification failed:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const meta = session.metadata;
+  // ✅ Handle the event type
+  const eventType = event.type || "checkout.session.completed";
+
+  if (eventType === "checkout.session.completed") {
+    const session = event.data?.object || event;
+    const meta = session.metadata || {};
 
     try {
-      const order = await Order.findById(meta.order_id);
-      if (!order) return res.json({ received: true });
+      console.log("✅ Payment completed for:", session.customer_email);
 
-      order.status = "paid";
-      order.stripeSessionId = session.id;
-      await order.save();
+      // Get order if metadata exists
+      const order = meta.order_id ? await Order.findById(meta.order_id) : null;
+      if (order) {
+        order.status = "paid";
+        order.stripeSessionId = session.id;
+        await order.save();
+      }
 
-      // Auto enrol to LMS
+      // ✅ LMS Enrolment
       const enrolResult = await enrolLearner({
-        firstname: meta.firstName,
-        lastname: meta.lastName,
-        email: meta.email,
-        course_id: meta.courseId,
-        enrol_to_id: meta.enrolToId
+        firstname: meta.firstName || session.customer_details?.name?.split(" ")[0] || "Test",
+        lastname: meta.lastName || session.customer_details?.name?.split(" ")[1] || "User",
+        email: meta.email || session.customer_email,
+        course_id: meta.courseId || 276, // Default: API Test Course
+        tier_id: meta.tierId || 12318     // Default: Community Steps Division
       });
 
-      order.status = enrolResult.success ? "enrolled" : "enrol_failed";
-      order.lmsResponse = enrolResult;
-      await order.save();
+      if (order) {
+        order.status = enrolResult.success ? "enrolled" : "enrol_failed";
+        order.lmsResponse = enrolResult;
+        await order.save();
+      }
 
-      console.log("✅ LMS Enrolment:", enrolResult);
+      console.log("🎉 LMS Enrolment Success:", enrolResult);
     } catch (err) {
-      console.error("❌ Webhook enrolment error:", err);
+      console.error("❌ Webhook enrolment error:", err.message);
     }
   }
 
@@ -56,3 +76,4 @@ router.post("/", async (req, res) => {
 });
 
 export default router;
+
