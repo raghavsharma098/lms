@@ -48,23 +48,29 @@ export async function getToken() {
 }
 
 // ✅ Enrol learner
-export async function enrolLearner({ firstname, lastname, email, course_id, enrol_to_id }) {
+export async function enrolLearner({ firstname, lastname, email, course_id, tier_id }) {
   try {
     const token = await getToken();
-    const payload = {
+
+    // ✅ Highfield expects form-urlencoded body, not JSON
+    const payload = new URLSearchParams({
       token,
       firstname,
       lastname,
       username: email,
       email,
-      password: "Temp@123", // temporary password
-      course_id,
-      enrol_to_id: enrol_to_id || process.env.HF_DEFAULT_ENROL_TO_ID
-    };
-
-    const { data } = await axios.post(`${BASE_URL}/autoEnrol`, payload, {
-      headers: { "Content-Type": "application/json" }
+      password: "Temp@123",
+      course_id: String(course_id),
+      tier_id: String(tier_id)
     });
+
+    const { data } = await axios.post(
+      `${BASE_URL}/autoEnrol`,
+      payload,
+      {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" }
+      }
+    );
 
     if (!data.success) {
       console.error("❌ LMS enrolment failed:", data.message);
@@ -78,5 +84,6 @@ export async function enrolLearner({ firstname, lastname, email, course_id, enro
     throw err;
   }
 }
+
 
 
